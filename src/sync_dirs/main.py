@@ -3,7 +3,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict, Set
+from typing import Dict, Generator
 
 
 def hash_file(file_path: Path, block_size: int = 65536) -> str:
@@ -18,43 +18,70 @@ def hash_file(file_path: Path, block_size: int = 65536) -> str:
         return hasher.hexdigest()
 
 
+def get_directory_content(directory_path: str) -> Dict[str, str]:
+    """
+    Retrieve directory's files and their hashes by directory path
+    :param directory_path: str
+    :return: Dict[str, str]
+    """
+    directory_content: Dict[str, str] = {}
+
+    for dir_path, _, file_names in os.walk(directory_path):
+        for file_name in file_names:
+            file_path: Path = Path(dir_path) / file_name
+            directory_content[hash_file(file_path)] = file_name
+
+    return directory_content
+
+
+def plan_sync_actions(
+    source_content: Dict[str, str],
+    destination_content: Dict[str, str],
+    source_path: str,
+    destination_path: str,
+) -> Generator:
+    for hash, file_name in source_content.items():
+        if hash not in destination_content:
+            file_src_path = Path(source_path) / file_name
+            file_dst_path = Path(destination_path) / file_name
+
+            yield "copy", file_src_path, file_dst_path
+            continue
+
+        if (
+            hash in destination_content
+            and source_content[hash] != destination_content[hash]
+        ):
+            current_file_name = Path(destination_path) / destination_content[hash]
+            new_file_name = Path(destination_path) / file_name
+
+            yield "move", current_file_name, new_file_name
+            continue
+
+    for hash, file_name in destination_content.items():
+        if hash in source_content:
+            continue
+
+        yield "delete", Path(destination_path) / file_name
+
+
 def sync(source_path: str, destination_path: str):
-    source_directory = Path(source_path)
-    destination_directory = Path(destination_path)
-    source_files_hashes: Dict[str, str] = {}
+    source_content = get_directory_content(source_path)
+    destination_content = get_directory_content(destination_path)
 
-    for dir_path, _, file_names in os.walk(source_directory):
-        for file_name in file_names:
-            file_path: Path = Path(dir_path) / file_name
+    sync_actions = plan_sync_actions(
+        source_content, destination_content, source_path, destination_path
+    )
 
-            source_files_hashes[hash_file(file_path)] = file_name
+    for action, *file_paths in sync_actions:
+        if action == "delete":
+            os.remove(*file_paths)
 
-    destination_files_hashes: Set[str] = set()
+        if action == "copy":
+            shutil.copyfile(*file_paths)
 
-    for dir_path, _, file_names in os.walk(destination_directory):
-        for file_name in file_names:
-            file_path: Path = Path(dir_path) / file_name
-            file_hash = hash_file(file_path)
-
-            destination_files_hashes.add(file_hash)
-
-            if file_hash not in source_files_hashes:
-                # file should be removed as it doesn't exist in the source directory
-                file_path.unlink(missing_ok=True)
-                continue
-
-            if (
-                file_hash in source_files_hashes
-                and source_files_hashes[file_hash] != file_name
-            ):
-                shutil.move(
-                    destination_directory,
-                    Path(dir_path) / source_files_hashes[file_hash],
-                )
-
-    for file_hash, file_name in source_files_hashes.items():
-        if file_hash not in destination_files_hashes:
-            shutil.copy(source_directory / file_name, destination_directory / file_name)
+        if action == "move":
+            shutil.move(*file_paths)
 
 
 if __name__ == "__main__":
