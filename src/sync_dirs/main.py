@@ -40,7 +40,7 @@ def sync(source_path: str, destination_path: str):
 
             if file_hash not in source_files_hashes:
                 # file should be removed as it doesn't exist in the source directory
-                file_path.remove()
+                file_path.unlink(missing_ok=True)
                 continue
 
             if (
