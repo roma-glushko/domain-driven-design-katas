@@ -11,9 +11,9 @@ def test__sync__file_exists_in_src_dir_only():
 
     try:
         content = "Roman Glushko"
-        (Path(source) / 'me.txt').write_text(content)
+        (Path(source) / "me.txt").write_text(content)
         sync(source, dest)
-        expected_path = Path(dest) / 'me.txt'
+        expected_path = Path(dest) / "me.txt"
         assert expected_path.exists()
         assert expected_path.read_text() == content
     finally:
@@ -27,9 +27,9 @@ def test__sync__file_exists_in_both_dirs_but_named_differently():
 
     try:
         content = "I am a file that was renamed"
-        source_path = Path(source) / 'source-filename'
-        old_dest_path = Path(dest) / 'dest-filename'
-        expected_dest_path = Path(dest) / 'source-filename'
+        source_path = Path(source) / "source-filename"
+        old_dest_path = Path(dest) / "dest-filename"
+        expected_dest_path = Path(dest) / "source-filename"
         source_path.write_text(content)
         old_dest_path.write_text(content)
         sync(source, dest)
@@ -46,7 +46,7 @@ def test__sync__file_exists_in_dst_dir_only():
 
     try:
         content = "I am a file that was renamed"
-        dest_path = Path(dest) / 'file.txt'
+        dest_path = Path(dest) / "file.txt"
         dest_path.write_text(content)
 
         sync(source, dest)
